@@ -55,6 +55,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.security.Key;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -76,43 +77,12 @@ public class SurfOAuthClient extends AbstractKeyManager {
     /**
      * {@code APIManagerComponent} calls this method, passing KeyManagerConfiguration as a {@code String}.
      *
-     * @param configuration Configuration as a {@code String}
+     * @param configuration Configuration as a {@link org.wso2.carbon.apimgt.api.model.KeyManagerConfiguration}
      */
     @Override
-    public void loadConfiguration(String configuration) throws APIManagementException {
+    public void loadConfiguration(KeyManagerConfiguration configuration) throws APIManagementException {
 
-        log.info(configuration);
-        if (configuration != null && !configuration.isEmpty()) {
-            StAXOMBuilder builder = null;
-            try {
-                builder = new StAXOMBuilder(new ByteArrayInputStream(configuration.getBytes()));
-                OMElement document = builder.getDocumentElement();
-                if (this.configuration == null) {
-                    synchronized (this) {
-
-                        // Instantiating KeyManagerConfiguration and add defined properties to the Configuration
-                        // Object.
-                        this.configuration = new KeyManagerConfiguration();
-
-                        // If you need to provision existing clients on API Manager, then set this to true.
-                        this.configuration.setManualModeSupported(true);
-
-                        // If you need Resource Registration Enabled. Set this to true.
-                        this.configuration.setResourceRegistrationEnabled(true);
-                        this.configuration.setTokenValidityConfigurable(true);
-                        Iterator<OMElement> elementIterator = document.getChildElements();
-                        while (elementIterator.hasNext()) {
-                            OMElement element = elementIterator.next();
-                            this.configuration.addParameter(element.getLocalName(), element.getText());
-                        }
-                    }
-                }
-
-            } catch (XMLStreamException e) {
-                handleException("Error occurred  while reading configs", e);
-            }
-
-        }
+        this.configuration = configuration;
     }
 
     /**
@@ -122,7 +92,6 @@ public class SurfOAuthClient extends AbstractKeyManager {
      */
     @Override
     public OAuthApplicationInfo createApplication(OAuthAppRequest oauthAppRequest) throws APIManagementException {
-
 
         OAuthApplicationInfo oAuthApplicationInfo = oauthAppRequest.getOAuthApplicationInfo();
 
