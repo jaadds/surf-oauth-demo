@@ -393,7 +393,7 @@ public class SurfOAuthClient extends AbstractKeyManager {
      * @throws APIManagementException
      */
     @Override
-    public OAuthApplicationInfo createSemiManualAuthApplication(OAuthAppRequest appInfoRequest)
+    public OAuthApplicationInfo mapOAuthApplication(OAuthAppRequest appInfoRequest)
             throws APIManagementException {
 
         OAuthApplicationInfo oAuthApplicationInfo = appInfoRequest.getOAuthApplicationInfo();
@@ -402,7 +402,7 @@ public class SurfOAuthClient extends AbstractKeyManager {
 
     @Override
     public boolean registerNewResource(API api, Map resourceAttributes) throws APIManagementException {
-        return true;
+        return false;
     }
 
     @Override
@@ -412,7 +412,7 @@ public class SurfOAuthClient extends AbstractKeyManager {
 
     @Override
     public boolean updateRegisteredResource(API api, Map resourceAttributes) throws APIManagementException {
-        return true;
+        return false;
     }
 
     @Override
