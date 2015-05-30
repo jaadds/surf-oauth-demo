@@ -365,6 +365,13 @@ public class SurfOAuthClient extends AbstractKeyManager {
     }
 
     @Override
+    public AccessTokenRequest buildAccessTokenRequestFromOAuthApp(OAuthApplicationInfo oAuthApplication,
+                                                                  AccessTokenRequest tokenRequest)
+            throws APIManagementException {
+        return null;
+    }
+
+    @Override
     public AccessTokenInfo getNewApplicationAccessToken(AccessTokenRequest tokenRequest) throws APIManagementException {
 
         return null;
@@ -417,6 +424,11 @@ public class SurfOAuthClient extends AbstractKeyManager {
 
     @Override
     public void deleteRegisteredResourceByAPIId(String apiID) throws APIManagementException {
+
+    }
+
+    @Override
+    public void deleteMappedApplication(String s) throws APIManagementException {
 
     }
 
