@@ -40,4 +40,7 @@ public final class SurfClientConstants {
     public static final String CLIENT_SCOPE = "scopes";
     public static final String CLIENT_CONTACT_NAME = "contactName";
     public static final String CLIENT_CONTAT_EMAIL = "contactEmail";
+    public static final String INTROSPECTION_URL = "IntrospectionURL";
+    public static final String INTROSPECTION_CK = "ConsumerKey";
+    public static final String INTROSPECTION_CS = "ConsumerSecret";
 }

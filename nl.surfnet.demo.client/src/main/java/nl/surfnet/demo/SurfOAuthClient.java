@@ -22,19 +22,26 @@ package nl.surfnet.demo;
 
 import org.apache.axiom.om.OMElement;
 import org.apache.axiom.om.impl.builder.StAXOMBuilder;
+import org.apache.axiom.om.util.Base64;
+import org.apache.commons.httpclient.params.HttpParams;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -46,6 +53,7 @@ import org.wso2.carbon.apimgt.api.model.AccessTokenRequest;
 import org.wso2.carbon.apimgt.api.model.KeyManagerConfiguration;
 import org.wso2.carbon.apimgt.api.model.OAuthAppRequest;
 import org.wso2.carbon.apimgt.api.model.OAuthApplicationInfo;
+import org.wso2.carbon.apimgt.impl.APIConstants;
 import org.wso2.carbon.apimgt.impl.factory.KeyManagerHolder;
 import org.wso2.carbon.apimgt.keymgt.AbstractKeyManager;
 
@@ -55,9 +63,12 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.URISyntaxException;
 import java.security.Key;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -379,7 +390,118 @@ public class SurfOAuthClient extends AbstractKeyManager {
 
     @Override
     public AccessTokenInfo getTokenMetaData(String accessToken) throws APIManagementException {
-        return null;
+        AccessTokenInfo tokenInfo = new AccessTokenInfo();
+
+        KeyManagerConfiguration config = KeyManagerHolder.getKeyManagerInstance().getKeyManagerConfiguration();
+
+        String introspectionURL = config.getParameter(SurfClientConstants.INTROSPECTION_URL);
+        String introspectionConsumerKey = config.getParameter(SurfClientConstants.INTROSPECTION_CK);
+        String introspectionConsumerSecret = config.getParameter(SurfClientConstants.INTROSPECTION_CS);
+        String encodedSecret = Base64.encode(new String(introspectionConsumerKey + ":" + introspectionConsumerSecret)
+                                                     .getBytes());
+
+        BufferedReader reader = null;
+
+        try {
+            URIBuilder uriBuilder = new URIBuilder(introspectionURL);
+            uriBuilder.addParameter("access_token", accessToken);
+            uriBuilder.build();
+
+            HttpGet httpGet = new HttpGet(uriBuilder.build());
+            HttpClient client = new DefaultHttpClient();
+
+            httpGet.setHeader("Authorization", "Basic " + encodedSecret);
+            HttpResponse response = client.execute(httpGet);
+            int responseCode = response.getStatusLine().getStatusCode();
+
+            if (log.isDebugEnabled()) {
+                log.debug("HTTP Response code : " + responseCode);
+            }
+
+            // {"audience":"MappedClient","scopes":["test"],"principal":{"name":"mappedclient","roles":[],"groups":[],"adminPrincipal":false,
+            // "attributes":{}},"expires_in":1433059160531}
+            HttpEntity entity = response.getEntity();
+            JSONObject parsedObject;
+            String errorMessage = null;
+            reader = new BufferedReader(new InputStreamReader(entity.getContent(), "UTF-8"));
+
+            if (HttpStatus.SC_OK == responseCode) {
+                //pass bufferReader object  and get read it and retrieve  the parsedJson object
+                parsedObject = getParsedObjectByReader(reader);
+                if (parsedObject != null) {
+
+                    Map valueMap = parsedObject;
+                    Object principal = valueMap.get("principal");
+
+                    if (principal == null) {
+                        tokenInfo.setTokenValid(false);
+                        return tokenInfo;
+                    }
+                    Map principalMap = (Map) principal;
+                    String clientId = (String) principalMap.get("name");
+                    Long expiryTimeString = (Long) valueMap.get("expires_in");
+
+                    // Returning false if mandatory attributes are missing.
+                    if (clientId == null || expiryTimeString == null) {
+                        tokenInfo.setTokenValid(false);
+                        tokenInfo.setErrorcode(APIConstants.KeyValidationStatus.API_AUTH_ACCESS_TOKEN_EXPIRED);
+                        return tokenInfo;
+                    }
+
+                    long currentTime = System.currentTimeMillis();
+                    long expiryTime = expiryTimeString;
+                    if (expiryTime > currentTime) {
+                        tokenInfo.setTokenValid(true);
+                        tokenInfo.setConsumerKey(clientId);
+                        tokenInfo.setValidityPeriod(expiryTime - currentTime);
+                        // Considering Current Time as the issued time.
+                        tokenInfo.setIssuedTime(currentTime);
+                        JSONArray scopesArray = (JSONArray) valueMap.get("scopes");
+
+                        if (scopesArray != null && !scopesArray.isEmpty()) {
+
+                            String[] scopes = new String[scopesArray.size()];
+                            for (int i = 0; i < scopes.length; i++) {
+                                scopes[i] = (String) scopesArray.get(i);
+                            }
+                            tokenInfo.setScope(scopes);
+                        }
+                    } else {
+                        tokenInfo.setTokenValid(false);
+                        tokenInfo.setErrorcode(APIConstants.KeyValidationStatus.API_AUTH_ACCESS_TOKEN_INACTIVE);
+                        return tokenInfo;
+                    }
+
+                } else {
+                    log.error("Invalid Token " + accessToken);
+                    tokenInfo.setTokenValid(false);
+                    tokenInfo.setErrorcode(APIConstants.KeyValidationStatus.API_AUTH_ACCESS_TOKEN_INACTIVE);
+                    return tokenInfo;
+                }
+            }//for other HTTP error codes we just pass generic message.
+            else {
+                log.error("Invalid Token " + accessToken);
+                tokenInfo.setTokenValid(false);
+                tokenInfo.setErrorcode(APIConstants.KeyValidationStatus.API_AUTH_ACCESS_TOKEN_INACTIVE);
+                return tokenInfo;
+            }
+
+        } catch (UnsupportedEncodingException e) {
+            handleException("The Character Encoding is not supported. " + e.getMessage(), e);
+        } catch (ClientProtocolException e) {
+            handleException("HTTP request error has occurred while sending request  to OAuth Provider. " +
+                            e.getMessage(), e);
+        } catch (IOException e) {
+            handleException("Error has occurred while reading or closing buffer reader. " + e.getMessage(), e);
+        } catch (URISyntaxException e) {
+            handleException("Error occurred while building URL with params." + e.getMessage(), e);
+        } catch (ParseException e) {
+            handleException("Error while parsing response json " + e.getMessage(), e);
+        } finally {
+            IOUtils.closeQuietly(reader);
+        }
+
+        return tokenInfo;
     }
 
     @Override
