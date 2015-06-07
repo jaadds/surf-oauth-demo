@@ -70,6 +70,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * This class provides the implementation to use "Apis" {@link "https://github.com/OAuth-Apis/apis"} for managing
@@ -552,6 +553,11 @@ public class SurfOAuthClient extends AbstractKeyManager {
     @Override
     public void deleteMappedApplication(String s) throws APIManagementException {
 
+    }
+
+    @Override
+    public Set<String> getActiveTokensByConsumerKey(String s) throws APIManagementException {
+        return null;
     }
 
     /**
