@@ -560,6 +560,11 @@ public class SurfOAuthClient extends AbstractKeyManager {
         return null;
     }
 
+    @Override
+    public AccessTokenInfo getAccessTokenByConsumerKey(String s) throws APIManagementException {
+        return null;
+    }
+
     /**
      * This method can be used to create a JSON Payload out of the Parameters defined in an OAuth Application.
      *
