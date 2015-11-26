@@ -532,7 +532,7 @@ public class SurfOAuthClient extends AbstractKeyManager {
 
     @Override
     public boolean registerNewResource(API api, Map resourceAttributes) throws APIManagementException {
-        return false;
+        return true;
     }
 
     @Override
@@ -542,7 +542,7 @@ public class SurfOAuthClient extends AbstractKeyManager {
 
     @Override
     public boolean updateRegisteredResource(API api, Map resourceAttributes) throws APIManagementException {
-        return false;
+        return true;
     }
 
     @Override
