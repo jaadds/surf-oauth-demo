@@ -55,7 +55,7 @@ import org.wso2.carbon.apimgt.api.model.OAuthAppRequest;
 import org.wso2.carbon.apimgt.api.model.OAuthApplicationInfo;
 import org.wso2.carbon.apimgt.impl.APIConstants;
 import org.wso2.carbon.apimgt.impl.factory.KeyManagerHolder;
-import org.wso2.carbon.apimgt.keymgt.AbstractKeyManager;
+import org.wso2.carbon.apimgt.impl.AbstractKeyManager;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.BufferedReader;
