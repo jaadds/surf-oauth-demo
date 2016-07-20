@@ -23,11 +23,14 @@ package nl.surfnet.demo;
 import org.apache.axiom.om.OMElement;
 import org.apache.axiom.om.impl.builder.StAXOMBuilder;
 import org.apache.axiom.om.util.Base64;
+import org.apache.axis2.util.URL;
 import org.apache.commons.httpclient.params.HttpParams;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.commons.vfs2.provider.http.HttpClientFactory;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
@@ -42,6 +45,7 @@ import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.oltu.oauth2.common.OAuth;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -56,6 +60,7 @@ import org.wso2.carbon.apimgt.api.model.OAuthApplicationInfo;
 import org.wso2.carbon.apimgt.impl.APIConstants;
 import org.wso2.carbon.apimgt.impl.factory.KeyManagerHolder;
 import org.wso2.carbon.apimgt.impl.AbstractKeyManager;
+import org.wso2.carbon.apimgt.impl.utils.APIUtil;
 
 import javax.xml.stream.XMLStreamException;
 import java.io.BufferedReader;
@@ -386,7 +391,68 @@ public class SurfOAuthClient extends AbstractKeyManager {
     @Override
     public AccessTokenInfo getNewApplicationAccessToken(AccessTokenRequest tokenRequest) throws APIManagementException {
 
-        return null;
+        String clientId = tokenRequest.getClientId();
+        String clientSecret = tokenRequest.getClientSecret();
+        AccessTokenInfo accessTokenInfo = null;
+        HttpPost httpTokenPost = null;
+
+        if (clientId != null && clientSecret != null) {
+            String tokenEp = configuration.getParameter(SurfClientConstants.TOKEN_ENDPOINT);
+            if (tokenEp != null) {
+                HttpClient tokenEPClient = new DefaultHttpClient();
+
+                httpTokenPost = new HttpPost(tokenEp);
+
+                // Request parameters.
+                List<NameValuePair> revokeParams = new ArrayList<NameValuePair>();
+                revokeParams.add(new BasicNameValuePair(OAuth.OAUTH_GRANT_TYPE, "client_credentials"));
+                String combinedKeySecret = clientId + ":" + clientSecret;
+                httpTokenPost.setHeader(SurfClientConstants.AUTHORIZATION, SurfClientConstants.BASIC + " " + Base64.encode
+                        (combinedKeySecret.getBytes()));
+
+
+                HttpResponse tokenResponse = null;
+                BufferedReader reader = null;
+                int statusCode;
+                try {
+                    httpTokenPost.setEntity(new UrlEncodedFormEntity(revokeParams, "UTF-8"));
+                    tokenResponse = tokenEPClient.execute(httpTokenPost);
+                    statusCode = tokenResponse.getStatusLine().getStatusCode();
+                    HttpEntity entity = tokenResponse.getEntity();
+                    reader = new BufferedReader(new InputStreamReader(entity.getContent(), "UTF-8"));
+
+                    if (statusCode == HttpStatus.SC_OK) {
+                        JSONParser parser = new JSONParser();
+                        if (reader != null) {
+                            Object parsedObject = parser.parse(reader);
+
+                            if (parsedObject instanceof JSONObject) {
+                                JSONObject jsonObject = (JSONObject) parsedObject;
+                                String accessToken = (String) jsonObject.get(OAuth.OAUTH_ACCESS_TOKEN);
+                                if (accessToken != null) {
+                                    accessTokenInfo = new AccessTokenInfo();
+                                    accessTokenInfo.setAccessToken(accessToken);
+                                } else {
+                                    log.warn("Access Token Null");
+                                }
+                            }
+                        }
+
+                    } else {
+                        handleException("Something went wrong while generating the Access Token");
+                    }
+                } catch (IOException e) {
+                    log.error("Exception occurred while generating token.", e);
+                } catch (ParseException e) {
+                    log.error("Error occurred while parsing the response.", e);
+                }
+            }
+
+        } else {
+            log.warn("Client Key or Secret not specified");
+        }
+
+        return accessTokenInfo;
     }
 
     @Override

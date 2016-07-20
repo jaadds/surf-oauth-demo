@@ -33,6 +33,7 @@ public final class SurfClientConstants {
 
     public static final String AUTHORIZATION = "Authorization";
     public static final String BEARER = "Bearer ";
+    public static final String BASIC = "Basic ";
     public static final String APPLICATION_JSON_CONTENT_TYPE = "application/json";
     public static final String CONTENT_TYPE = "Content-Type";
     public static final String SCOPES = "scopes";
@@ -43,4 +44,5 @@ public final class SurfClientConstants {
     public static final String INTROSPECTION_URL = "IntrospectionURL";
     public static final String INTROSPECTION_CK = "ConsumerKey";
     public static final String INTROSPECTION_CS = "ConsumerSecret";
+    public static final String TOKEN_ENDPOINT = "TokenEndpoint";
 }
