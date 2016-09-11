@@ -1,0 +1,31 @@
+Manifest-Version: 1.0
+Export-Package: nl.surfnet.demo;uses:="org.apache.http.client.entity,o
+ rg.apache.http.message,org.apache.commons.logging,org.wso2.carbon.api
+ mgt.api.model,org.json.simple.parser,org.apache.http.entity,org.wso2.
+ carbon.apimgt.impl,org.apache.http.client.utils,org.json.simple,org.a
+ pache.http.client,org.apache.axiom.om.util,org.apache.http.impl.clien
+ t,org.apache.http.conn,org.wso2.carbon.apimgt.api,org.apache.commons.
+ io,org.wso2.carbon.apimgt.impl.factory,org.apache.http.client.methods
+ ,org.apache.http";version="1.0.0"
+Built-By: nuwandi
+Tool: Bnd-0.0.238
+Bundle-Name: gateway.client
+Created-By: Apache Maven Bundle Plugin
+DynamicImport-Package: *
+Bundle-Version: 1.0.0
+Build-Jdk: 1.7.0_51
+Bnd-LastModified: 1473536660198
+Bundle-ManifestVersion: 2
+Import-Package: nl.surfnet.demo;version="1.0.0",org.apache.axiom.om.ut
+ il;version="1.2.11.wso2v6",org.apache.commons.io,org.apache.commons.l
+ ogging;version="1.2",org.apache.http,org.apache.http.client;version="
+ 4.3.1.wso2v2",org.apache.http.client.entity;version="4.3.1.wso2v2",or
+ g.apache.http.client.methods;version="4.3.1.wso2v2",org.apache.http.c
+ lient.utils;version="4.3.1.wso2v2",org.apache.http.conn;version="4.3.
+ 1.wso2v2",org.apache.http.entity,org.apache.http.impl.client;version=
+ "4.3.1.wso2v2",org.apache.http.message,org.json.simple,org.json.simpl
+ e.parser,org.wso2.carbon.apimgt.api;version="5.0",org.wso2.carbon.api
+ mgt.api.model;version="5.0",org.wso2.carbon.apimgt.impl;version="5.0"
+ ,org.wso2.carbon.apimgt.impl.factory;version="5.0"
+Bundle-SymbolicName: gateway.client
+

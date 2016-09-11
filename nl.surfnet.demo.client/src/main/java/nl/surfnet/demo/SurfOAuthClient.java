@@ -48,6 +48,7 @@ import org.wso2.carbon.apimgt.api.APIManagementException;
 import org.wso2.carbon.apimgt.api.model.API;
 import org.wso2.carbon.apimgt.api.model.AccessTokenInfo;
 import org.wso2.carbon.apimgt.api.model.AccessTokenRequest;
+import org.wso2.carbon.apimgt.api.model.ApplicationConstants;
 import org.wso2.carbon.apimgt.api.model.KeyManagerConfiguration;
 import org.wso2.carbon.apimgt.api.model.OAuthAppRequest;
 import org.wso2.carbon.apimgt.api.model.OAuthApplicationInfo;
@@ -61,6 +62,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -382,7 +384,36 @@ public class SurfOAuthClient extends AbstractKeyManager {
     public AccessTokenRequest buildAccessTokenRequestFromOAuthApp(OAuthApplicationInfo oAuthApplication,
                                                                   AccessTokenRequest tokenRequest)
             throws APIManagementException {
-        return super.buildAccessTokenRequestFromOAuthApp(oAuthApplication, tokenRequest);
+        if (oAuthApplication == null) {
+            return tokenRequest;
+        }
+        if (tokenRequest == null) {
+            tokenRequest = new AccessTokenRequest();
+        }
+
+        if (oAuthApplication.getClientId() == null || oAuthApplication.getClientSecret() == null) {
+            throw new APIManagementException("Consumer key or Consumer Secret missing.");
+        }
+        tokenRequest.setClientId(oAuthApplication.getClientId());
+        tokenRequest.setClientSecret(oAuthApplication.getClientSecret());
+
+
+        if (oAuthApplication.getParameter("tokenScope") != null) {
+            String[] tokenScopes = (String[]) oAuthApplication.getParameter("tokenScope");
+            tokenRequest.setScope(tokenScopes);
+            oAuthApplication.addParameter("tokenScope", Arrays.toString(tokenScopes));
+        } else if (oAuthApplication.getParameter(SurfClientConstants.CLIENT_SCOPE) != null) {
+            org.json.simple.JSONArray tokenScopes = (JSONArray) oAuthApplication.getParameter(SurfClientConstants.CLIENT_SCOPE);
+            String[] scopes = new String[] {(String) tokenScopes.get(0)};
+            tokenRequest.setScope(scopes);
+        }
+
+        if (oAuthApplication.getParameter(ApplicationConstants.VALIDITY_PERIOD) != null) {
+            tokenRequest.setValidityPeriod(Long.parseLong((String) oAuthApplication.getParameter(ApplicationConstants
+                    .VALIDITY_PERIOD)));
+        }
+
+        return tokenRequest;
     }
 
     @Override
@@ -403,10 +434,12 @@ public class SurfOAuthClient extends AbstractKeyManager {
                 // Request parameters.
                 List<NameValuePair> revokeParams = new ArrayList<NameValuePair>();
                 revokeParams.add(new BasicNameValuePair(OAuth.OAUTH_GRANT_TYPE, "client_credentials"));
+                revokeParams.add(new BasicNameValuePair("scope", tokenRequest.getScope()[0]));
+
                 String combinedKeySecret = clientId + ":" + clientSecret;
                 httpTokenPost.setHeader(SurfClientConstants.AUTHORIZATION, SurfClientConstants.BASIC + " " + Base64.encode
                         (combinedKeySecret.getBytes()));
-
+                httpTokenPost.setHeader(SurfClientConstants.CONTENT_TYPE, SurfClientConstants.URL_ENCODED_CONTENT_TYPE);
 
                 HttpResponse tokenResponse = null;
                 BufferedReader reader = null;
