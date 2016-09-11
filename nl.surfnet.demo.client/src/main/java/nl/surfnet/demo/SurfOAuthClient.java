@@ -20,17 +20,11 @@
 
 package nl.surfnet.demo;
 
-import org.apache.axiom.om.OMElement;
-import org.apache.axiom.om.impl.builder.StAXOMBuilder;
 import org.apache.axiom.om.util.Base64;
-import org.apache.axis2.util.URL;
-import org.apache.commons.httpclient.params.HttpParams;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.commons.vfs2.provider.http.HttpClientFactory;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.NameValuePair;
@@ -58,21 +52,16 @@ import org.wso2.carbon.apimgt.api.model.KeyManagerConfiguration;
 import org.wso2.carbon.apimgt.api.model.OAuthAppRequest;
 import org.wso2.carbon.apimgt.api.model.OAuthApplicationInfo;
 import org.wso2.carbon.apimgt.impl.APIConstants;
-import org.wso2.carbon.apimgt.impl.factory.KeyManagerHolder;
 import org.wso2.carbon.apimgt.impl.AbstractKeyManager;
-import org.wso2.carbon.apimgt.impl.utils.APIUtil;
+import org.wso2.carbon.apimgt.impl.factory.KeyManagerHolder;
 
-import javax.xml.stream.XMLStreamException;
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
-import java.security.Key;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -125,9 +114,14 @@ public class SurfOAuthClient extends AbstractKeyManager {
         HttpClient httpClient = getHttpClient();
 
         BufferedReader reader = null;
+        Map<String, Object> serverparams;
+
         try {
-            //Create the JSON Payload that should be sent to OAuth Server.
-            String jsonPayload = createJsonPayloadFromOauthApplication(oAuthApplicationInfo);
+            serverparams = getResourceServerParams(registrationEndpoint, registrationToken);
+
+            //putting client name
+            serverparams.put(SurfClientConstants.CLIENT_NAME, oauthAppRequest.getOAuthApplicationInfo().getClientName());
+            String jsonPayload = createJsonPayloadFromMap(serverparams);
 
             log.debug("Payload for creating new client : " + jsonPayload);
 
@@ -391,6 +385,9 @@ public class SurfOAuthClient extends AbstractKeyManager {
     @Override
     public AccessTokenInfo getNewApplicationAccessToken(AccessTokenRequest tokenRequest) throws APIManagementException {
 
+        if (tokenRequest == null) {
+            return null;
+        }
         String clientId = tokenRequest.getClientId();
         String clientSecret = tokenRequest.getClientSecret();
         AccessTokenInfo accessTokenInfo = null;
@@ -429,9 +426,18 @@ public class SurfOAuthClient extends AbstractKeyManager {
                             if (parsedObject instanceof JSONObject) {
                                 JSONObject jsonObject = (JSONObject) parsedObject;
                                 String accessToken = (String) jsonObject.get(OAuth.OAUTH_ACCESS_TOKEN);
+                                Long validityPeriod = (Long) jsonObject.get("expires_in");
+                                String[] scopes = null;
+                                if (jsonObject.get("scope") != null) {
+                                    scopes = ((String) jsonObject.get("scope")).split(",");
+                                }
                                 if (accessToken != null) {
                                     accessTokenInfo = new AccessTokenInfo();
                                     accessTokenInfo.setAccessToken(accessToken);
+                                    accessTokenInfo.setValidityPeriod(validityPeriod);
+                                    accessTokenInfo.setTokenValid(true);
+                                    accessTokenInfo.setScope(scopes);
+                                    accessTokenInfo.setConsumerKey(clientId);
                                 } else {
                                     log.warn("Access Token Null");
                                 }
@@ -642,12 +648,12 @@ public class SurfOAuthClient extends AbstractKeyManager {
 
         Map<String, Object> paramMap = new HashMap<String, Object>();
 
-        if (oAuthApplicationInfo.getClientName() == null ||
-            oAuthApplicationInfo.getParameter(SurfClientConstants.CLIENT_CONTACT_NAME) == null ||
-            oAuthApplicationInfo.getParameter(SurfClientConstants.CLIENT_SCOPE) == null ||
-            oAuthApplicationInfo.getParameter(SurfClientConstants.CLIENT_CONTAT_EMAIL) == null) {
-            throw new APIManagementException("Mandatory parameters missing");
-        }
+//        if (oAuthApplicationInfo.getClientName() == null ||
+//            oAuthApplicationInfo.getParameter(SurfClientConstants.CLIENT_CONTACT_NAME) == null ||
+//            oAuthApplicationInfo.getParameter(SurfClientConstants.CLIENT_SCOPE) == null ||
+//            oAuthApplicationInfo.getParameter(SurfClientConstants.CLIENT_CONTAT_EMAIL) == null) {
+//            throw new APIManagementException("Mandatory parameters missing");
+//        }
 
         // Format of the request needed.
         // {"name":"TestClient_1","scopes":["scope1"],
@@ -656,16 +662,48 @@ public class SurfOAuthClient extends AbstractKeyManager {
 
         paramMap.put(SurfClientConstants.CLIENT_NAME, oAuthApplicationInfo.getClientName());
 
-        JSONArray scopes = (JSONArray) oAuthApplicationInfo.getParameter(SurfClientConstants.CLIENT_SCOPE);
-        paramMap.put("scopes", scopes);
+//        JSONArray scopes = (JSONArray) oAuthApplicationInfo.getParameter(SurfClientConstants.CLIENT_SCOPE);
+//        paramMap.put("scopes", scopes);
+//
+//        paramMap.put(SurfClientConstants.CLIENT_CONTACT_NAME, oAuthApplicationInfo.getParameter(SurfClientConstants
+//                                                                                                        .CLIENT_CONTACT_NAME));
+//        paramMap.put(SurfClientConstants.CLIENT_CONTAT_EMAIL, oAuthApplicationInfo.getParameter(SurfClientConstants
+//                                                                                                        .CLIENT_CONTAT_EMAIL));
 
-        paramMap.put(SurfClientConstants.CLIENT_CONTACT_NAME, oAuthApplicationInfo.getParameter(SurfClientConstants
-                                                                                                        .CLIENT_CONTACT_NAME));
-        paramMap.put(SurfClientConstants.CLIENT_CONTAT_EMAIL, oAuthApplicationInfo.getParameter(SurfClientConstants
-                                                                                                        .CLIENT_CONTAT_EMAIL));
+        JSONArray scopes = new JSONArray();
+        scopes.add("test");
+        paramMap.put("scopes", scopes);
+        paramMap.put(SurfClientConstants.CLIENT_CONTACT_NAME, "Nuwandi");
+        paramMap.put(SurfClientConstants.CLIENT_CONTAT_EMAIL, "nuwandiw@wso2.com");
+
         if (oAuthApplicationInfo.getParameter("id") != null) {
             paramMap.put("id", oAuthApplicationInfo.getParameter("id"));
         }
+
+        return JSONObject.toJSONString(paramMap);
+    }
+
+    private String createJsonPayloadFromMap(Map responseMap) throws APIManagementException {
+
+        if (responseMap.get(SurfClientConstants.CLIENT_NAME) == null ||
+                responseMap.get(SurfClientConstants.CLIENT_CONTACT_NAME) == null ||
+                responseMap.get(SurfClientConstants.CLIENT_SCOPE) == null ||
+                responseMap.get(SurfClientConstants.CLIENT_CONTAT_EMAIL) == null) {
+            throw new APIManagementException("Mandatory parameters missing");
+        }
+
+        Map<String, Object> paramMap = new HashMap<String, Object>();
+
+        paramMap.put(SurfClientConstants.CLIENT_NAME, responseMap.get(SurfClientConstants.CLIENT_NAME));
+
+        JSONArray scopes = (JSONArray) responseMap.get(SurfClientConstants.CLIENT_SCOPE);
+        paramMap.put("scopes", scopes);
+
+        paramMap.put(SurfClientConstants.CLIENT_CONTACT_NAME, responseMap.get(SurfClientConstants.CLIENT_CONTACT_NAME));
+        paramMap.put(SurfClientConstants.CLIENT_CONTAT_EMAIL, responseMap.get(SurfClientConstants.CLIENT_CONTAT_EMAIL));
+//        if (responseMap.get("id") != null) {
+//            paramMap.put("id", responseMap.get("id"));
+//        }
 
         return JSONObject.toJSONString(paramMap);
     }
@@ -753,6 +791,32 @@ public class SurfOAuthClient extends AbstractKeyManager {
         }
 
         return info;
+    }
+
+    public Map<String, Object> getResourceServerParams(String url, String token) throws IOException, ParseException {
+        String resServerUrl = url.substring(0, url.indexOf("/client")) ;
+        HttpGet httpget = new HttpGet(resServerUrl);
+        httpget.setHeader(SurfClientConstants.CONTENT_TYPE, SurfClientConstants.APPLICATION_JSON_CONTENT_TYPE);
+
+        // Setting Authorization Header, with Access Token
+        httpget.setHeader(SurfClientConstants.AUTHORIZATION, SurfClientConstants.BEARER + token);
+        HttpClient httpClient = getHttpClient();
+
+        HttpResponse response;
+        BufferedReader reader;
+
+        response = httpClient.execute(httpget);
+        int responseCode = response.getStatusLine().getStatusCode();
+
+        JSONObject parsedObject;
+        HttpEntity entity = response.getEntity();
+        reader = new BufferedReader(new InputStreamReader(entity.getContent(), SurfClientConstants.UTF_8));
+
+        if (HttpStatus.SC_OK == responseCode) {
+            parsedObject = getParsedObjectByReader(reader);
+            return parsedObject;
+        }
+        return null;
     }
 
     /**
